@@ -1,29 +1,26 @@
 use std::fs;
 
-use anyhow::Result;
-use serde::{Deserialize, Serialize};
+use crate::opts::OutputFormat;
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-struct Player {
-    name: String,
-    position: String,
-    #[serde(rename = "DOB")]
-    dob: String,
-    nationality: String,
-    #[serde(rename = "Kit Number")]
-    kit: u8,
-}
-
-pub fn process_csv(input: &str, output: &str) -> Result<()> {
+pub fn process_csv(input: &str, output: &str, fmt: OutputFormat) -> anyhow::Result<()> {
     let mut reader = csv::Reader::from_path(input)?;
+    let headers = reader.headers()?.clone();
+    let records = reader.records();
     let mut ret = Vec::with_capacity(128);
-    for row in reader.deserialize() {
-        let player: Player = row?;
-        ret.push(player);
+    for record in records {
+        let record = record?;
+        let value = headers
+            .into_iter()
+            .zip(record.iter())
+            .collect::<serde_json::Value>();
+        ret.push(value);
     }
 
-    let json = serde_json::to_string_pretty(&ret)?;
-    fs::write(output, json)?;
+    let content = match fmt {
+        OutputFormat::Json => serde_json::to_string_pretty(&ret)?,
+        OutputFormat::Yaml => serde_yaml::to_string(&ret)?,
+    };
+
+    fs::write(output, content)?;
     Ok(())
 }
