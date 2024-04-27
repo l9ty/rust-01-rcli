@@ -11,7 +11,7 @@ pub fn process_genpass(
     symbol: bool,
     uppercase: bool,
     lowercase: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<String> {
     let mut password = Vec::with_capacity(length as usize);
     let chars_len: usize = UPPERCASE.len() + LOWERCASE.len() + NUMBERS.len() + SYMBOLS.len();
     let mut chars = Vec::with_capacity(chars_len);
@@ -47,11 +47,8 @@ pub fn process_genpass(
     }
 
     password.shuffle(&mut rng);
+
     let password = String::from_utf8(password)?;
-    println!("{}", password);
 
-    let estimate = zxcvbn::zxcvbn(&password, &[])?;
-    eprintln!("Estimated strength: {}", estimate.score());
-
-    anyhow::Ok(())
+    anyhow::Ok(password)
 }

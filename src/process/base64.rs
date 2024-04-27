@@ -1,22 +1,13 @@
-use std::{fs, io};
+use std::io;
 
 use anyhow::{Ok, Result};
 
 use crate::cli::base64::Base64Method;
 use base64::prelude::*;
 
-fn read_content(infile: &str) -> Result<Box<dyn io::Read>> {
-    if infile == "-" {
-        Ok(Box::new(io::stdin()) as Box<dyn io::Read>)
-    } else {
-        Ok(Box::new(fs::File::open(infile)?) as Box<dyn io::Read>)
-    }
-}
-
-pub fn process_encode(infile: &str, method: Base64Method) -> Result<()> {
-    let mut reader = read_content(infile)?;
+pub fn process_encode(input: &mut dyn io::Read, method: Base64Method) -> Result<String> {
     let mut buf = String::new();
-    reader.read_to_string(&mut buf)?;
+    input.read_to_string(&mut buf)?;
     let s = buf.trim();
 
     let encoded = match method {
@@ -24,15 +15,12 @@ pub fn process_encode(infile: &str, method: Base64Method) -> Result<()> {
         Base64Method::UrlSafe => BASE64_URL_SAFE.encode(s),
     };
 
-    println!("{}", encoded);
-
-    Ok(())
+    Ok(encoded)
 }
 
-pub fn process_decode(infile: &str, method: Base64Method) -> Result<()> {
-    let mut reader = read_content(infile)?;
+pub fn process_decode(input: &mut dyn io::Read, method: Base64Method) -> Result<String> {
     let mut buf = String::new();
-    reader.read_to_string(&mut buf)?;
+    input.read_to_string(&mut buf)?;
     let s = buf.trim();
 
     let decoded = match method {
@@ -41,26 +29,26 @@ pub fn process_decode(infile: &str, method: Base64Method) -> Result<()> {
     };
 
     let decoded = String::from_utf8(decoded)?;
-    println!("{}", decoded);
-
-    Ok(())
+    Ok(decoded)
 }
 
 #[cfg(test)]
 mod test {
+
+    use crate::utils::open_reader;
+
     use super::*;
 
-    #[test]
-    fn t_process_encode() {
+    fn encode_decode(method: Base64Method) {
         let infile = "Cargo.toml";
-        let method = Base64Method::Standard;
-        assert!(process_encode(infile, method).is_ok());
+        let mut reader = open_reader(infile).expect("read content error");
+        let encoded = process_encode(reader.as_mut(), method).expect("encode error");
+        process_decode(&mut (encoded.as_bytes()), method).expect("process encode error");
     }
 
     #[test]
-    fn t_process_decode() {
-        let infile = "./features/b64.txt";
-        let method = Base64Method::UrlSafe;
-        assert!(process_decode(infile, method).is_ok());
+    fn t_encode_decode() {
+        encode_decode(Base64Method::Standard);
+        encode_decode(Base64Method::UrlSafe);
     }
 }

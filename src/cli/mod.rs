@@ -1,10 +1,13 @@
 pub mod base64;
 pub mod csv;
 pub mod genpass;
+pub mod text;
 
 use std::path::Path;
 
-pub use self::{base64::Base64SubCommand, csv::CsvOpts, genpass::GenPassOpts};
+pub use self::{
+    base64::Base64SubCommand, csv::CsvOpts, genpass::GenPassOpts, text::TextSubCommand,
+};
 use clap::{Parser, Subcommand};
 
 // rcli csv -i input -o output --header -d ,
@@ -23,9 +26,12 @@ pub enum SubCommand {
     GenPass(GenPassOpts),
     #[command(subcommand)]
     Base64(Base64SubCommand),
+    #[command(subcommand)]
+    Text(TextSubCommand),
 }
 
-pub fn verify_path(s: &str) -> Result<String, &'static str> {
+// TODO
+pub fn verify_file(s: &str) -> Result<String, &'static str> {
     if s == "-" {
         return Ok(s.to_string());
     }
