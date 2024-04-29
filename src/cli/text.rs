@@ -1,10 +1,19 @@
 use anyhow::{Ok, Result};
-use std::{fmt::Display, path::PathBuf, str::FromStr};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use enum_dispatch::enum_dispatch;
+use std::{fmt::Display, fs, path::PathBuf, str::FromStr};
 
-use super::verify_file;
+use crate::{
+    process::text::{process_text_key_generate, process_text_sign, process_text_verify},
+    utils::{open_reader, read_content},
+    CmdExector,
+};
+
+use super::{verify_dir, verify_file};
 use clap::{Parser, Subcommand};
 
 #[derive(Debug, Subcommand)]
+#[enum_dispatch(CmdExector)]
 pub enum TextSubCommand {
     #[command(
         name = "sign",
@@ -25,9 +34,9 @@ pub enum TextSubCommand {
 
 #[derive(Debug, Parser)]
 pub struct TextSignOpts {
-    #[arg(short, long)]
+    #[arg(short, long, value_parser = verify_file)]
     pub input: String,
-    #[arg(short, long)]
+    #[arg(short, long, value_parser = verify_file)]
     pub key: String,
     #[arg(short, long, default_value_t = TextSignMethod::Blake3, value_parser = parse_text_sign_method)]
     pub method: TextSignMethod,
@@ -47,8 +56,9 @@ pub struct TextVerifyOpts {
 
 #[derive(Debug, Parser)]
 pub struct TextGenerateOpts {
-    #[arg(short, long, default_value_t = TextSignMethod::Blake3, value_parser = parse_text_sign_method)]
+    #[arg(short, long, value_parser = parse_text_sign_method, default_value_t = TextSignMethod::Blake3)]
     pub method: TextSignMethod,
+    #[arg(short, long, value_parser = verify_dir, default_value = ".")]
     pub output: PathBuf,
 }
 
@@ -56,6 +66,43 @@ pub struct TextGenerateOpts {
 pub enum TextSignMethod {
     Blake3,
     Ed25519,
+}
+
+impl CmdExector for TextSignOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let mut msg = open_reader(&self.input)?;
+        let key = read_content(&self.key)?;
+        let sig = process_text_sign(msg.as_mut(), key.as_slice(), self.method)?;
+        let encoded = URL_SAFE_NO_PAD.encode(sig);
+        println!("{}", encoded);
+        Ok(())
+    }
+}
+
+impl CmdExector for TextVerifyOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let mut msg = open_reader(&self.input)?;
+        let key = read_content(&self.key)?;
+        let sig = URL_SAFE_NO_PAD.decode(&self.sig)?;
+        let verified =
+            process_text_verify(msg.as_mut(), key.as_slice(), sig.as_slice(), self.method)?;
+        if verified {
+            println!("✓ Signature verified");
+        } else {
+            println!("⚠ Signature not verified");
+        }
+        Ok(())
+    }
+}
+
+impl CmdExector for TextGenerateOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let key = process_text_key_generate(self.method)?;
+        for (filename, contents) in key {
+            fs::write(self.output.join(filename), contents)?;
+        }
+        Ok(())
+    }
 }
 
 fn parse_text_sign_method(s: &str) -> Result<TextSignMethod, anyhow::Error> {

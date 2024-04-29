@@ -1,10 +1,19 @@
 use std::str::FromStr;
 
+use crate::{
+    process::base64::{process_decode, process_encode},
+    utils::open_reader,
+    CmdExector,
+};
+
 use super::verify_file;
+use anyhow::Ok;
 use clap::Parser;
+use enum_dispatch::enum_dispatch;
 use std::fmt::Display;
 
 #[derive(Debug, Parser)]
+#[enum_dispatch(CmdExector)]
 pub enum Base64SubCommand {
     #[command(name = "encode", about = "Encode a string to base64")]
     Encode(Base64EncodeOpts),
@@ -32,6 +41,24 @@ pub struct Base64DecodeOpts {
 pub enum Base64Method {
     UrlSafe,
     Standard,
+}
+
+impl CmdExector for Base64EncodeOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let mut reader = open_reader(&self.input)?;
+        let ret = process_encode(reader.as_mut(), self.method)?;
+        println!("{}", ret);
+        Ok(())
+    }
+}
+
+impl CmdExector for Base64DecodeOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let mut reader = open_reader(&self.input)?;
+        let ret = process_decode(reader.as_mut(), self.method)?;
+        println!("{}", ret);
+        Ok(())
+    }
 }
 
 impl FromStr for Base64Method {

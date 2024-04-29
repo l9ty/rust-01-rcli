@@ -1,4 +1,17 @@
-# Geektime Rust 语言训练营
+# Rust cli project
+
+## 命令
+
+### text
+```bash
+rcli generate
+
+rcli text sign -i [input-file] --method blake3 --key fixtures/blake3.key
+rcli text verify -i [input-file] --method balke3 --key fixtures/blake3.key
+
+rcli text sign -i [input-file] --method ed25519 --key fixtures/ed25519.sk --sign xxx
+rcli text verify -i [input-file] --method ed25519 --key fixtures/ed25519.pk --sign xxx
+```
 
 ## 环境设置
 

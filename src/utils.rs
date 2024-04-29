@@ -10,7 +10,7 @@ pub fn open_reader(infile: &str) -> anyhow::Result<Box<dyn io::Read>> {
     }
 }
 
-pub fn reader_content(infile: &str) -> anyhow::Result<Vec<u8>> {
+pub fn read_content(infile: &str) -> anyhow::Result<Vec<u8>> {
     let mut reader = open_reader(infile)?;
     let mut buf = Vec::new();
     reader.read_to_end(&mut buf)?;

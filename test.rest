@@ -1,0 +1,8 @@
+### Test file handler
+GET http://localhost:8080/fixtures/b64.txt
+
+
+
+### Test towser service
+GET http://localhost:8080/tower/Cargo.toml
+Range: bytes=0-10
