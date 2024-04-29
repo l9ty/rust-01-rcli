@@ -4,7 +4,9 @@ use enum_dispatch::enum_dispatch;
 use std::{fmt::Display, fs, path::PathBuf, str::FromStr};
 
 use crate::{
-    process::text::{process_text_key_generate, process_text_sign, process_text_verify},
+    process::text::{
+        process_text_encrypt, process_text_key_generate, process_text_sign, process_text_verify,
+    },
     utils::{open_reader, read_content},
     CmdExector,
 };
@@ -15,16 +17,14 @@ use clap::{Parser, Subcommand};
 #[derive(Debug, Subcommand)]
 #[enum_dispatch(CmdExector)]
 pub enum TextSubCommand {
-    #[command(
-        name = "sign",
-        about = "Sign a message with a private/session key and return the signature"
-    )]
+    #[command(about = "Sign a message with a private/session key and return the signature")]
     Sign(TextSignOpts),
-    #[command(
-        name = "verify",
-        about = "Verify a message with a public/session key and signature"
-    )]
+    #[command(about = "Verify a message with a public/session key and signature")]
     Verify(TextVerifyOpts),
+    #[command(about = "Encrypt a message with chacha20poly1305")]
+    Encrypt(TextEncryptOpts),
+    #[command(about = "Decrypt a message with chacha20poly1305")]
+    Decrypt(TextDecryptOpts),
     #[command(
         name = "generate",
         about = "Generate a random blake3 key or ed25519 key pair"
@@ -68,6 +68,22 @@ pub enum TextSignMethod {
     Ed25519,
 }
 
+#[derive(Debug, Parser)]
+pub struct TextEncryptOpts {
+    #[arg(short, long, value_parser = verify_file, default_value = "-")]
+    pub input: String,
+    #[arg(short, long)]
+    pub key: String,
+}
+
+#[derive(Debug, Parser)]
+pub struct TextDecryptOpts {
+    #[arg(short, long, value_parser = verify_file, default_value = "-")]
+    pub input: String,
+    #[arg(short, long)]
+    pub key: String,
+}
+
 impl CmdExector for TextSignOpts {
     async fn execute(self) -> anyhow::Result<()> {
         let mut msg = open_reader(&self.input)?;
@@ -101,6 +117,30 @@ impl CmdExector for TextGenerateOpts {
         for (filename, contents) in key {
             fs::write(self.output.join(filename), contents)?;
         }
+        Ok(())
+    }
+}
+
+impl CmdExector for TextEncryptOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let mut msg = open_reader(&self.input)?;
+        let key = hex::decode(&self.key)?;
+        let encrypted = process_text_encrypt(msg.as_mut(), key.as_slice(), true)?;
+        let encoded = URL_SAFE_NO_PAD.encode(encrypted);
+        print!("{}", encoded);
+        Ok(())
+    }
+}
+
+impl CmdExector for TextDecryptOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let mut reader = open_reader(&self.input)?;
+        let mut b64msg = Vec::new();
+        reader.read_to_end(&mut b64msg)?;
+        let msg = URL_SAFE_NO_PAD.decode(&b64msg)?;
+        let key = hex::decode(self.key)?;
+        let decoded = process_text_encrypt(&mut msg.as_slice(), key.as_slice(), false)?;
+        println!("{}", String::from_utf8(decoded)?);
         Ok(())
     }
 }

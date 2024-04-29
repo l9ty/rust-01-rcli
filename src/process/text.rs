@@ -1,4 +1,10 @@
-use anyhow::{Ok, Result};
+use anyhow::{anyhow, Ok, Result};
+
+use chacha20poly1305::{
+    aead::{Aead, AeadCore, KeyInit, OsRng as ChaOsRng},
+    ChaCha20Poly1305, Error as ChaError, KeySizeUser, Nonce,
+};
+use core::result::Result as CoreResult;
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use rand::rngs::OsRng;
 use std::{collections::HashMap, io::Read};
@@ -151,8 +157,42 @@ pub fn process_text_key_generate(method: TextSignMethod) -> Result<KeyOutput> {
     }
 }
 
+pub fn process_text_encrypt(reader: &mut dyn Read, key: &[u8], encrypt: bool) -> Result<Vec<u8>> {
+    let mut text = Vec::new();
+    reader.read_to_end(&mut text)?;
+
+    let chacha = ChaCha20Poly1305::new_from_slice(key).map_err(|_| {
+        anyhow!(
+            "invalid key length: require {}, got {}",
+            ChaCha20Poly1305::key_size(),
+            key.len()
+        )
+    })?;
+
+    if encrypt {
+        let nonce = ChaCha20Poly1305::generate_nonce(&mut ChaOsRng);
+        let result: CoreResult<Vec<u8>, ChaError> = chacha.encrypt(&nonce, text.as_slice());
+        let ciphertext = result.map_err(|e| anyhow!(e.to_string()))?;
+        Ok([nonce.as_slice(), &ciphertext].concat())
+    } else {
+        let nsize = Nonce::default().len();
+        if text.len() <= nsize {
+            return Err(anyhow!(
+                "invalid message length: require > {}, got {}",
+                nsize,
+                text.len()
+            ));
+        }
+        let nonce = Nonce::from_slice(&text[..nsize]);
+        let result: CoreResult<Vec<u8>, ChaError> = chacha.decrypt(nonce, &text[nsize..]);
+        let plaintext = result.map_err(|e| anyhow!(e.to_string()))?;
+        Ok(plaintext)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     const KEY_BLAKE3: &[u8] = include_bytes!("../../fixtures/blake3.txt");
@@ -184,6 +224,27 @@ mod tests {
             TextSignMethod::Ed25519,
         )?;
         assert!(ok);
+        Ok(())
+    }
+
+    fn encrypt_decrypt(msg: &[u8], key: &[u8]) -> anyhow::Result<Vec<u8>> {
+        let ciphertext = process_text_encrypt(&mut &msg[0..], key, true)?;
+        let plaintext = process_text_encrypt(&mut ciphertext.as_slice(), key, false)?;
+        Ok(plaintext)
+    }
+
+    #[test]
+    fn t_encrypt_decrypt() -> Result<()> {
+        let msg = b"hello, world";
+        let key32 = b"01234567890123456789012345678901";
+        let key16 = &key32[..16];
+
+        let plaintext = encrypt_decrypt(msg, key32)?;
+        assert_eq!(msg, plaintext.as_slice());
+
+        let result = encrypt_decrypt(msg, key16);
+        assert!(result.is_err());
+
         Ok(())
     }
 }

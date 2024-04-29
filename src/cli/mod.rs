@@ -13,7 +13,10 @@ pub use self::{
     csv::CsvOpts,
     genpass::GenPassOpts,
     http_serve::{HttpServeOpts, HttpSubCommand},
-    text::{TextGenerateOpts, TextSignOpts, TextSubCommand, TextVerifyOpts},
+    text::{
+        TextDecryptOpts, TextEncryptOpts, TextGenerateOpts, TextSignOpts, TextSubCommand,
+        TextVerifyOpts,
+    },
 };
 use clap::{Parser, Subcommand};
 use enum_dispatch::enum_dispatch;
