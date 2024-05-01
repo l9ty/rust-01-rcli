@@ -2,6 +2,7 @@ pub mod base64;
 pub mod csv;
 pub mod genpass;
 pub mod http_serve;
+pub mod jwt;
 pub mod text;
 
 use std::path::Path;
@@ -13,13 +14,16 @@ pub use self::{
     csv::CsvOpts,
     genpass::GenPassOpts,
     http_serve::{HttpServeOpts, HttpSubCommand},
+    jwt::{JwtSignOpts, JwtSubCommand, JwtVerifyOpts},
     text::{
         TextDecryptOpts, TextEncryptOpts, TextGenerateOpts, TextSignOpts, TextSubCommand,
         TextVerifyOpts,
     },
 };
+
 use clap::{Parser, Subcommand};
 use enum_dispatch::enum_dispatch;
+use regex::Regex;
 
 // rcli csv -i input -o output --header -d ,
 #[derive(Debug, Parser)]
@@ -42,6 +46,8 @@ pub enum SubCommand {
     Text(TextSubCommand),
     #[command(subcommand)]
     Http(HttpSubCommand),
+    #[command(subcommand)]
+    Jwt(JwtSubCommand),
 }
 
 impl CmdExector for CsvOpts {
@@ -64,5 +70,39 @@ pub fn verify_dir(path: &str) -> Result<String, &'static str> {
         Ok(path.into())
     } else {
         Err("Directory does not exist")
+    }
+}
+
+pub struct ReadableDuration(String);
+
+impl ReadableDuration {
+    pub fn new(s: String) -> Self {
+        Self(s)
+    }
+}
+
+impl TryInto<i64> for ReadableDuration {
+    type Error = ();
+
+    fn try_into(self) -> Result<i64, Self::Error> {
+        let re = Regex::new(r"(?:(\d+)([smhd])\s?)+").unwrap();
+
+        let mut delta = 0;
+
+        for (_, [n, unit]) in re.captures_iter(&self.0).map(|c| c.extract()) {
+            delta += match unit {
+                "s" => n.parse::<i64>().unwrap(),
+                "m" => n.parse::<i64>().unwrap() * 60,
+                "h" => n.parse::<i64>().unwrap() * 60 * 60,
+                "d" => n.parse::<i64>().unwrap() * 60 * 60 * 24,
+                _ => unreachable!(),
+            }
+        }
+
+        if delta == 0 {
+            Err(())
+        } else {
+            Ok(delta)
+        }
     }
 }
