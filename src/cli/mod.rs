@@ -1,7 +1,7 @@
 pub mod base64;
 pub mod csv;
 pub mod genpass;
-pub mod http_serve;
+pub mod http;
 pub mod jwt;
 pub mod text;
 
@@ -13,7 +13,7 @@ pub use self::{
     base64::{Base64DecodeOpts, Base64EncodeOpts, Base64SubCommand},
     csv::CsvOpts,
     genpass::GenPassOpts,
-    http_serve::{HttpServeOpts, HttpSubCommand},
+    http::{HttpServeOpts, HttpSubCommand},
     jwt::{JwtSignOpts, JwtSubCommand, JwtVerifyOpts},
     text::{
         TextDecryptOpts, TextEncryptOpts, TextGenerateOpts, TextSignOpts, TextSubCommand,

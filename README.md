@@ -4,13 +4,14 @@
 
 ### text
 ```bash
-rcli generate
+KEY=514e794d2a6a41392a35536e682524483633526a336577504674216435754b44
+rcli text encrypt -i Cargo.toml --key $KEY > output.txt
+rcli text decrypt -i output.txt --key $KEY
 
-rcli text sign -i [input-file] --method blake3 --key fixtures/blake3.key
-rcli text verify -i [input-file] --method balke3 --key fixtures/blake3.key
+rcli jwt sign --exp 2s > output.txt
+rcli jwt verify -i output
 
-rcli text sign -i [input-file] --method ed25519 --key fixtures/ed25519.sk --sign xxx
-rcli text verify -i [input-file] --method ed25519 --key fixtures/ed25519.pk --sign xxx
+rcli http serve --port 8080
 ```
 
 ## 环境设置
